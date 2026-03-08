@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { updateThingSpeakField } from '../api';
 import { Power } from 'lucide-react';
 
-const SwitchControl = ({ id, label, initialState = '0', fieldNumber, onUpdate }) => {
+const SwitchControl = ({ label, initialState = '0', fieldNumber, onUpdate }) => {
     // initialState represents '1' for ON, '0' for OFF or whatever standard you use.
     // '1' or 1 -> true, '0' or 0 -> false
     const [isOn, setIsOn] = useState(() => String(initialState) === '1');

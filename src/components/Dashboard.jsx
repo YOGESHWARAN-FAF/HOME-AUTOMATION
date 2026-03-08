@@ -21,7 +21,7 @@ const Dashboard = () => {
             } else {
                 setError("No data received from ThingSpeak");
             }
-        } catch (err) {
+        } catch {
             setError("Connection to ThingSpeak failed");
         } finally {
             setLoading(false);

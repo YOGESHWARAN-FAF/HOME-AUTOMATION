@@ -1,13 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { updateMultipleFields } from '../api';
-import { Settings2, Zap, Leaf, Activity } from 'lucide-react';
+import { Settings2, Activity, Percent } from 'lucide-react';
 
 const DimmerControl = ({ field4, field5, onUpdate }) => {
-    // field4 -> DIMMER MODE ('Automatic' or 'Manual')
-    // field5 -> DIMMER VALUE ('ECO', 'STANDARD', 'PERFORMANCE')
-    const [mode, setMode] = useState(field4 || 'Automatic');
-    const [performanceMode, setPerformanceMode] = useState(field5 || 'STANDARD');
+    // field4 -> DIMMER MODE ('1' for Automatic, '0' for Manual)
+    // field5 -> DIMMER VALUE (0% to 100%)
+
+    // Convert incoming states
+    const [mode, setMode] = useState(() => {
+        if (field4 === '1') return 'Automatic';
+        if (field4 === '0') return 'Manual';
+        return 'Automatic';
+    });
+
+    // Value could be string '0' to '100'
+    const [dimmerValue, setDimmerValue] = useState(() => {
+        const val = parseInt(field5);
+        return isNaN(val) ? 0 : val;
+    });
+
     const [isLoading, setIsLoading] = useState(false);
+
+    // For debouncing slider
+    const [sliderValue, setSliderValue] = useState(dimmerValue);
+
+    // Sync external props correctly
+    useEffect(() => {
+        if (field4 === '1') setMode('Automatic');
+        else if (field4 === '0') setMode('Manual');
+
+        const val = parseInt(field5);
+        if (!isNaN(val)) {
+            setDimmerValue(val);
+            setSliderValue(val);
+        }
+    }, [field4, field5]);
+
 
     const handleModeChange = async (newMode) => {
         if (isLoading || newMode === mode) return;
@@ -17,7 +45,8 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         setMode(newMode);
 
         try {
-            await updateMultipleFields({ field4: newMode });
+            const apiMode = newMode === 'Automatic' ? '1' : '0';
+            await updateMultipleFields({ field4: apiMode });
             if (onUpdate) onUpdate();
         } catch (error) {
             console.error("Failed to update Mode", error);
@@ -27,27 +56,31 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         }
     };
 
-    const handlePerformanceChange = async (newPerfMode) => {
-        if (isLoading || mode !== 'Manual' || newPerfMode === performanceMode) return;
+    const handleSliderChange = (e) => {
+        setSliderValue(e.target.value);
+    };
+
+    const handleSliderRelease = async () => {
+        if (isLoading || mode !== 'Manual' || sliderValue === dimmerValue) return;
+
         setIsLoading(true);
-        // Optimistic UI Update
-        const previousPerfMode = performanceMode;
-        setPerformanceMode(newPerfMode);
+        const prevValue = dimmerValue;
+        setDimmerValue(sliderValue);
 
         try {
-            // Update only Field 5 as Mode is already "Manual"
-            await updateMultipleFields({ field5: newPerfMode });
+            await updateMultipleFields({ field5: sliderValue.toString() });
             if (onUpdate) onUpdate();
         } catch (error) {
-            console.error("Failed to update Performance Mode", error);
-            setPerformanceMode(previousPerfMode);
+            console.error("Failed to update Dimmer Value", error);
+            setDimmerValue(prevValue);
+            setSliderValue(prevValue);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 transition-all hover:shadow-md h-full">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 transition-all hover:shadow-md h-full flex flex-col justify-between">
             <div className="flex items-center space-x-3 mb-6">
                 <div className="bg-yellow-100 p-2 rounded-lg">
                     <Settings2 className="w-6 h-6 text-yellow-600" />
@@ -63,8 +96,8 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
                 <button
                     onClick={() => handleModeChange('Automatic')}
                     className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${mode === 'Automatic'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Automatic
@@ -72,65 +105,55 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
                 <button
                     onClick={() => handleModeChange('Manual')}
                     className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${mode === 'Manual'
-                            ? 'bg-white text-slate-900 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Manual
                 </button>
             </div>
 
-            {/* Performance Modes - Only visible when in Manual */}
-            {mode === 'Manual' && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
-                    <p className="text-sm font-medium text-slate-500 mb-2">Select Performance Mode</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <ModernButton
-                            icon={<Leaf className="w-5 h-5 text-green-700" />}
-                            label="ECO"
-                            isActive={performanceMode === 'ECO'}
-                            onClick={() => handlePerformanceChange('ECO')}
-                        />
-                        <ModernButton
-                            icon={<Activity className="w-5 h-5 text-blue-700" />}
-                            label="STANDARD"
-                            isActive={performanceMode === 'STANDARD'}
-                            onClick={() => handlePerformanceChange('STANDARD')}
-                        />
-                        <ModernButton
-                            icon={<Zap className="w-5 h-5 text-yellow-700" />}
-                            label="PERFORMANCE"
-                            isActive={performanceMode === 'PERFORMANCE'}
-                            onClick={() => handlePerformanceChange('PERFORMANCE')}
-                        />
-                    </div>
-                </div>
-            )}
-            {mode === 'Automatic' && (
-                <div className="bg-slate-50 rounded-xl p-6 text-center border border-slate-100 animate-in fade-in duration-300">
-                    <Activity className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-slate-500">System is managing AC Light Dimmer automatically based on sensors.</p>
-                </div>
-            )}
-        </div>
-    );
-};
+            {/* Slider Control Container */}
+            <div className="flex-grow flex flex-col justify-end">
+                {mode === 'Manual' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-2">
+                            <p className="text-sm font-medium text-slate-500">Dimmer Level</p>
+                            <div className="flex items-center text-yellow-600 font-bold bg-yellow-100 px-3 py-1 rounded-full">
+                                <span>{sliderValue}</span>
+                                <Percent className="w-3 h-3 ml-0.5" />
+                            </div>
+                        </div>
 
-const ModernButton = ({ icon, label, isActive, onClick }) => {
-    return (
-        <button
-            onClick={onClick}
-            className={`flex flex-col items-center justify-center py-4 px-2 rounded-xl border-2 transition-all ${isActive
-                    ? 'border-yellow-400 bg-yellow-50 shadow-sm'
-                    : 'border-slate-100 bg-white hover:border-yellow-200 hover:bg-slate-50 text-slate-400'
-                }`}
-        >
-            <div className={`p-2 rounded-full mb-2 ${isActive ? 'bg-white shadow-sm' : 'bg-slate-100'}`}>
-                {icon}
+                        <div className="relative pt-2 pb-2">
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={sliderValue}
+                                onChange={handleSliderChange}
+                                onMouseUp={handleSliderRelease}
+                                onTouchEnd={handleSliderRelease}
+                                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+                            />
+                            <div className="flex justify-between text-xs text-slate-400 mt-2">
+                                <span>0%</span>
+                                <span>50%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {mode === 'Automatic' && (
+                    <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 animate-in fade-in duration-300">
+                        <Activity className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                        <p className="text-slate-500 text-sm">Dimmer is being managed automatically</p>
+                        <p className="text-xs text-slate-400 mt-1">Manual controls are disabled</p>
+                    </div>
+                )}
             </div>
-            <span className={`text-xs font-bold leading-none uppercase tracking-wider ${isActive ? 'text-slate-800' : 'text-slate-500'
-                }`}>{label}</span>
-        </button>
+        </div>
     );
 };
 
