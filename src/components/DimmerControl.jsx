@@ -23,22 +23,26 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [sliderValue, setSliderValue] = useState(dimmerValue);
+    const [lastActionTime, setLastActionTime] = useState(0);
 
     // Sync external props correctly
     useEffect(() => {
-        if (field4 === '1') setMode('Automatic');
-        else if (field4 === '0') setMode('Manual');
+        if (Date.now() - lastActionTime > 20000) {
+            if (field4 === '1') setMode('Automatic');
+            else if (field4 === '0') setMode('Manual');
 
-        const val = parseInt(field5);
-        if (!isNaN(val)) {
-            setDimmerValue(val);
-            setSliderValue(val);
+            const val = parseInt(field5);
+            if (!isNaN(val)) {
+                setDimmerValue(val);
+                setSliderValue(val);
+            }
         }
-    }, [field4, field5]);
+    }, [field4, field5, lastActionTime]);
 
     const handleModeChange = async (newMode) => {
         if (isLoading || newMode === mode) return;
         setIsLoading(true);
+        setLastActionTime(Date.now());
         const previousMode = mode;
         setMode(newMode);
 
@@ -64,6 +68,7 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         if (isLoading || mode !== 'Manual' || val === dimmerValue) return;
 
         setIsLoading(true);
+        setLastActionTime(Date.now());
         const prevValue = dimmerValue;
         setDimmerValue(val);
 

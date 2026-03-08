@@ -12,15 +12,21 @@ const SwitchControl = ({ label, initialState = '0', fieldNumber, onUpdate }) => 
     // initialState represents '1' for ON, '0' for OFF
     const [isOn, setIsOn] = useState(() => String(initialState) === '1');
     const [isLoading, setIsLoading] = useState(false);
+    const [lastActionTime, setLastActionTime] = useState(0);
 
     // Sync with external polling updates
     useEffect(() => {
-        setIsOn(String(initialState) === '1');
-    }, [initialState]);
+        // Ignore ThingSpeak polling data if we just pushed an update locally 
+        // to prevent UI jittering back to '0' during the queue period.
+        if (Date.now() - lastActionTime > 20000) {
+            setIsOn(String(initialState) === '1');
+        }
+    }, [initialState, lastActionTime]);
 
     const handleToggle = async () => {
         if (isLoading) return;
         setIsLoading(true);
+        setLastActionTime(Date.now());
         const newState = !isOn;
         setIsOn(newState); // Optimistic UI update
 
