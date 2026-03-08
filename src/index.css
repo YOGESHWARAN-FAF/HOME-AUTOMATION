@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-green: #22c55e; /* Default green-500 */
+  --color-highlight-yellow: #facc15; /* Default yellow-400 */
+  --color-warning-yellow: #eab308; /* Default yellow-500 */
+}
+
+body {
+  background-color: #f8fafc; /* Slate 50 to make white cards pop */
+  color: #1e293b; /* Slate 800 */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.2);
+}
