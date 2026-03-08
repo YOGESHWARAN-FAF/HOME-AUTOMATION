@@ -3,7 +3,7 @@ import axios from 'axios';
 // API Keys and Configuration
 const READ_API_KEY = 'GTCH3LLP6CGW259Y';
 const WRITE_API_KEY = '8VYWXEKFS97HPW6H';
-const CHANNEL_ID = 'YOUR_CHANNEL_ID'; // Replace with your Channel ID if you want to test read
+const CHANNEL_ID = '3290781'; // Replace with your Channel ID if you want to test read
 
 // Base URLs
 const READ_URL = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json`;
