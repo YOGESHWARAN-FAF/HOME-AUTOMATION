@@ -33,47 +33,76 @@ export const fetchThingSpeakData = async () => {
     }
 };
 
-/**
- * Updates a specific field in ThingSpeak.
- * @param {number} fieldNumber - The number of the field to update (1-8).
- * @param {string|number} value - The value to update it with.
- */
-export const updateThingSpeakField = async (fieldNumber, value) => {
-    try {
-        const response = await axios.get(WRITE_URL, {
-            params: {
-                api_key: WRITE_API_KEY,
-                [`field${fieldNumber}`]: value,
-                t: Date.now()
-            }
-        });
+let lastUpdateTime = 0;
+let updateBuffer = {};
+let resolveQueue = [];
+let rejectQueue = [];
+let updateTimeout = null;
 
-        // ThingSpeak returns '0' if the rate limit (15 seconds) is exceeded OR update fails
-        if (response.data === 0) {
-            throw new Error("Update rejected by ThingSpeak. Please wait 15 seconds before updating again.");
-        }
-        return response.data;
-    } catch (error) {
-        console.error(`Error updating Field ${fieldNumber}:`, error);
-        throw error;
-    }
+const THINGSPEAK_RATE_LIMIT_MS = 15500; // 15 seconds + small padding
+
+/**
+ * Updates a specific field in ThingSpeak using the debounced global queue.
+ */
+export const updateThingSpeakField = (fieldNumber, value) => {
+    return queueThingSpeakUpdate({ [`field${fieldNumber}`]: value });
 };
 
 /**
- * Updates multiple fields in a single ThingSpeak API call.
- * @param {Object} fields - Key-value pairs of fields to update, e.g., { field1: '1', field4: '1' }
+ * Updates multiple fields using the debounced global queue.
  */
-export const updateMultipleFields = async (fields) => {
-    try {
-        const params = { api_key: WRITE_API_KEY, ...fields, t: Date.now() };
-        const response = await axios.get(WRITE_URL, { params });
+export const updateMultipleFields = (fields) => {
+    return queueThingSpeakUpdate(fields);
+};
 
-        if (response.data === 0) {
-            throw new Error("Update rejected by ThingSpeak. Please wait 15 seconds before updating again.");
+/**
+ * Queues updates and respects ThingSpeak's strict 15-second rate limit.
+ * All requested field updates inside the 15-second window are batched 
+ * into a single physical API call right when the window opens.
+ */
+const queueThingSpeakUpdate = (fields) => {
+    return new Promise((resolve, reject) => {
+        // Overlay the new fields into the active buffer
+        updateBuffer = { ...updateBuffer, ...fields };
+
+        // Push the callbacks so everyone gets notified simultaneously when hit completes!
+        resolveQueue.push(resolve);
+        rejectQueue.push(reject);
+
+        if (!updateTimeout) {
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastUpdateTime;
+            // Next window opens exactly when the rate limit expires
+            const delay = Math.max(0, THINGSPEAK_RATE_LIMIT_MS - timeSinceLastUpdate);
+
+            updateTimeout = setTimeout(async () => {
+                const fieldsToSend = { ...updateBuffer };
+                const resolvers = resolveQueue;
+                const rejecters = rejectQueue;
+
+                // Clear state for next batches
+                updateBuffer = {};
+                resolveQueue = [];
+                rejectQueue = [];
+                updateTimeout = null;
+
+                try {
+                    const params = { api_key: WRITE_API_KEY, ...fieldsToSend, t: Date.now() };
+                    const response = await axios.get(WRITE_URL, { params });
+
+                    if (response.data === 0) {
+                        // Rare edge-case: we hit it somehow too early, ThingSpeak rejects.
+                        throw new Error("Update rejected by ThingSpeak. Ensure 15s between pushes.");
+                    }
+
+                    // Stamp successful run
+                    lastUpdateTime = Date.now();
+                    resolvers.forEach(r => r(response.data));
+                } catch (error) {
+                    console.error("Error executing queued ThingSpeak batch:", error);
+                    rejecters.forEach(r => r(error));
+                }
+            }, delay);
         }
-        return response.data;
-    } catch (error) {
-        console.error("Error updating multiple fields:", error);
-        throw error;
-    }
+    });
 };
