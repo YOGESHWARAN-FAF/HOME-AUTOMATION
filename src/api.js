@@ -3,7 +3,7 @@ import axios from 'axios';
 // API Keys and Configuration
 const READ_API_KEY = 'GTCH3LLP6CGW259Y';
 const WRITE_API_KEY = '8VYWXEKFS97HPW6H';
-const CHANNEL_ID = '3290781'; // Replace with your Channel ID if you want to test read
+const CHANNEL_ID = 'YOUR_CHANNEL_ID'; // Replace with your Channel ID if you want to test read
 
 // Base URLs
 const READ_URL = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json`;
@@ -18,7 +18,8 @@ export const fetchThingSpeakData = async () => {
         const response = await axios.get(READ_URL, {
             params: {
                 api_key: READ_API_KEY,
-                results: 1
+                results: 1,
+                t: Date.now() // Prevent browser caching
             }
         });
 
@@ -42,9 +43,15 @@ export const updateThingSpeakField = async (fieldNumber, value) => {
         const response = await axios.get(WRITE_URL, {
             params: {
                 api_key: WRITE_API_KEY,
-                [`field${fieldNumber}`]: value
+                [`field${fieldNumber}`]: value,
+                t: Date.now()
             }
         });
+
+        // ThingSpeak returns '0' if the rate limit (15 seconds) is exceeded OR update fails
+        if (response.data === 0) {
+            throw new Error("Update rejected by ThingSpeak. Please wait 15 seconds before updating again.");
+        }
         return response.data;
     } catch (error) {
         console.error(`Error updating Field ${fieldNumber}:`, error);
@@ -54,12 +61,16 @@ export const updateThingSpeakField = async (fieldNumber, value) => {
 
 /**
  * Updates multiple fields in a single ThingSpeak API call.
- * @param {Object} fields - Key-value pairs of fields to update, e.g., { field1: '1', field4: 'Automatic' }
+ * @param {Object} fields - Key-value pairs of fields to update, e.g., { field1: '1', field4: '1' }
  */
 export const updateMultipleFields = async (fields) => {
     try {
-        const params = { api_key: WRITE_API_KEY, ...fields };
+        const params = { api_key: WRITE_API_KEY, ...fields, t: Date.now() };
         const response = await axios.get(WRITE_URL, { params });
+
+        if (response.data === 0) {
+            throw new Error("Update rejected by ThingSpeak. Please wait 15 seconds before updating again.");
+        }
         return response.data;
     } catch (error) {
         console.error("Error updating multiple fields:", error);

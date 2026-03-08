@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { updateMultipleFields } from '../api';
 import { Settings2, Activity, Percent } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) {
+    return twMerge(clsx(inputs));
+}
 
 const DimmerControl = ({ field4, field5, onUpdate }) => {
-    // field4 -> DIMMER MODE ('1' for Automatic, '0' for Manual)
-    // field5 -> DIMMER VALUE (0% to 100%)
-
     // Convert incoming states
     const [mode, setMode] = useState(() => {
         if (field4 === '1') return 'Automatic';
@@ -13,15 +16,12 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         return 'Automatic';
     });
 
-    // Value could be string '0' to '100'
     const [dimmerValue, setDimmerValue] = useState(() => {
         const val = parseInt(field5);
         return isNaN(val) ? 0 : val;
     });
 
     const [isLoading, setIsLoading] = useState(false);
-
-    // For debouncing slider
     const [sliderValue, setSliderValue] = useState(dimmerValue);
 
     // Sync external props correctly
@@ -36,11 +36,9 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         }
     }, [field4, field5]);
 
-
     const handleModeChange = async (newMode) => {
         if (isLoading || newMode === mode) return;
         setIsLoading(true);
-        // Optimistic UI Update
         const previousMode = mode;
         setMode(newMode);
 
@@ -51,6 +49,7 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
         } catch (error) {
             console.error("Failed to update Mode", error);
             setMode(previousMode);
+            alert(`ThingSpeak Update Failed: ${error.message || "Wait 15s between updates."}`);
         } finally {
             setIsLoading(false);
         }
@@ -61,98 +60,123 @@ const DimmerControl = ({ field4, field5, onUpdate }) => {
     };
 
     const handleSliderRelease = async () => {
-        if (isLoading || mode !== 'Manual' || sliderValue === dimmerValue) return;
+        const val = parseInt(sliderValue);
+        if (isLoading || mode !== 'Manual' || val === dimmerValue) return;
 
         setIsLoading(true);
         const prevValue = dimmerValue;
-        setDimmerValue(sliderValue);
+        setDimmerValue(val);
 
         try {
-            await updateMultipleFields({ field5: sliderValue.toString() });
+            await updateMultipleFields({ field5: val.toString() });
             if (onUpdate) onUpdate();
         } catch (error) {
             console.error("Failed to update Dimmer Value", error);
             setDimmerValue(prevValue);
             setSliderValue(prevValue);
+            alert(`ThingSpeak Update Failed: ${error.message || "Wait 15s between updates."}`);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 transition-all hover:shadow-md h-full flex flex-col justify-between">
-            <div className="flex items-center space-x-3 mb-6">
-                <div className="bg-yellow-100 p-2 rounded-lg">
-                    <Settings2 className="w-6 h-6 text-yellow-600" />
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border-2 border-slate-100 h-full flex flex-col justify-between col-span-1 lg:col-span-2 relative overflow-hidden transition-shadow hover:shadow-lg">
+
+            {/* Header Configuration Panel */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 z-10 relative">
+                <div className="flex items-center space-x-4 mb-4 sm:mb-0">
+                    <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 p-4 rounded-2xl shadow-lg shadow-yellow-500/20 text-white">
+                        <Settings2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-slate-800 font-bold text-2xl tracking-wide">Dimmer</h3>
+                        <p className="text-slate-400 text-sm font-semibold mt-0.5 tracking-wide uppercase">{mode} Active</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 className="text-slate-800 font-semibold text-xl">AC Light Dimmer</h3>
-                    <p className="text-slate-400 text-sm">Operation Mode</p>
+
+                {/* Switch Toggle Tab Group Style */}
+                <div className="flex bg-slate-100/80 p-[5px] rounded-2xl self-stretch">
+                    <button
+                        onClick={() => handleModeChange('Automatic')}
+                        className={cn(
+                            "px-6 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 tracking-wider",
+                            mode === 'Automatic'
+                                ? "bg-white text-yellow-600 shadow-sm shadow-slate-200"
+                                : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
+                        )}
+                    >
+                        AUTO
+                    </button>
+                    <button
+                        onClick={() => handleModeChange('Manual')}
+                        className={cn(
+                            "px-6 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 tracking-wider",
+                            mode === 'Manual'
+                                ? "bg-white text-yellow-600 shadow-sm shadow-slate-200"
+                                : "text-slate-400 hover:text-slate-600 hover:bg-white/50"
+                        )}
+                    >
+                        MANUAL
+                    </button>
                 </div>
             </div>
 
-            {/* Mode Selection */}
-            <div className="flex bg-slate-100 rounded-xl p-1 mb-6">
-                <button
-                    onClick={() => handleModeChange('Automatic')}
-                    className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${mode === 'Automatic'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    Automatic
-                </button>
-                <button
-                    onClick={() => handleModeChange('Manual')}
-                    className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all ${mode === 'Manual'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    Manual
-                </button>
-            </div>
-
-            {/* Slider Control Container */}
-            <div className="flex-grow flex flex-col justify-end">
+            {/* Content Area */}
+            <div className="flex-grow flex flex-col justify-center z-10 relative mt-2 pt-4 px-2">
                 {mode === 'Manual' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                        <div className="flex justify-between items-center mb-2">
-                            <p className="text-sm font-medium text-slate-500">Dimmer Level</p>
-                            <div className="flex items-center text-yellow-600 font-bold bg-yellow-100 px-3 py-1 rounded-full">
-                                <span>{sliderValue}</span>
-                                <Percent className="w-3 h-3 ml-0.5" />
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex justify-between items-end mb-6">
+                            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest pl-1">Intensity Level</span>
+                            <div className="text-6xl font-black text-yellow-500 flex items-start -mr-2 drop-shadow-sm">
+                                {sliderValue}
+                                <span className="text-2xl mt-2 text-yellow-500/80">%</span>
                             </div>
                         </div>
 
-                        <div className="relative pt-2 pb-2">
+                        {/* Native Range Slider - Styled like Blynk Big Controls */}
+                        <div className="relative w-full py-6 group flex items-center">
                             <input
                                 type="range"
                                 min="0"
                                 max="100"
+                                step="1"
                                 value={sliderValue}
                                 onChange={handleSliderChange}
                                 onMouseUp={handleSliderRelease}
                                 onTouchEnd={handleSliderRelease}
-                                className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+                                className={cn(
+                                    "w-full h-8 rounded-[16px] appearance-none cursor-pointer outline-none transition-all duration-300",
+                                    "focus:ring-[6px] focus:ring-yellow-400/20 active:scale-[0.99] active:shadow-inner",
+                                    "slider-thumb-blynk"
+                                )}
+                                style={{
+                                    background: `linear-gradient(to right, #facc15 ${sliderValue}%, #f1f5f9 ${sliderValue}%)`,
+                                    boxShadow: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)'
+                                }}
                             />
-                            <div className="flex justify-between text-xs text-slate-400 mt-2">
-                                <span>0%</span>
-                                <span>50%</span>
-                                <span>100%</span>
-                            </div>
                         </div>
                     </div>
                 )}
 
                 {mode === 'Automatic' && (
-                    <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 animate-in fade-in duration-300">
-                        <Activity className="w-8 h-8 text-slate-400 mx-auto mb-3" />
-                        <p className="text-slate-500 text-sm">Dimmer is being managed automatically</p>
-                        <p className="text-xs text-slate-400 mt-1">Manual controls are disabled</p>
+                    <div className="py-10 flex flex-col items-center justify-center animate-in fade-in duration-500">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-slate-200/50 rounded-full animate-ping opacity-70"></div>
+                            <div className="bg-slate-50 p-6 rounded-full border-4 border-slate-100 relative">
+                                <Activity className="w-10 h-10 text-slate-400" />
+                            </div>
+                        </div>
+                        <p className="text-slate-500 mt-6 font-semibold tracking-wide text-center">
+                            Dimmer bounded to Automatic Sensor Engine.
+                        </p>
+                        <p className="text-slate-400 text-xs mt-2 uppercase tracking-widest font-bold">Manual override disabled</p>
                     </div>
                 )}
             </div>
+
+            {/* Background Blob Effect */}
+            <div className="absolute -bottom-[20%] right-[-10%] w-[400px] h-[400px] bg-yellow-400/[0.03] rounded-full blur-3xl pointer-events-none" />
         </div>
     );
 };

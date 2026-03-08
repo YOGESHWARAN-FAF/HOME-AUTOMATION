@@ -1,55 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { updateThingSpeakField } from '../api';
 import { Power } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) {
+    return twMerge(clsx(inputs));
+}
 
 const SwitchControl = ({ label, initialState = '0', fieldNumber, onUpdate }) => {
-    // initialState represents '1' for ON, '0' for OFF or whatever standard you use.
-    // '1' or 1 -> true, '0' or 0 -> false
+    // initialState represents '1' for ON, '0' for OFF
     const [isOn, setIsOn] = useState(() => String(initialState) === '1');
     const [isLoading, setIsLoading] = useState(false);
 
+    // Sync with external polling updates
+    useEffect(() => {
+        setIsOn(String(initialState) === '1');
+    }, [initialState]);
+
     const handleToggle = async () => {
+        if (isLoading) return;
         setIsLoading(true);
         const newState = !isOn;
-        // Optimistic UI update
-        setIsOn(newState);
+        setIsOn(newState); // Optimistic UI update
 
         try {
             await updateThingSpeakField(fieldNumber, newState ? '1' : '0');
-            // If we want to notify parent or trigger a local refresh
+            // Notify parent if needed
             if (onUpdate) onUpdate();
         } catch (error) {
             console.error(`Failed to flip switch ${fieldNumber}`, error);
-            // Revert state if failed
-            setIsOn(!newState);
+            setIsOn(!newState); // Revert gracefully
+            alert(`ThingSpeak Update Failed: ${error.message || "Wait 15s before another update."}`);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md">
-            <div>
-                <h3 className="text-slate-800 font-semibold text-lg">{label}</h3>
-                <p className="text-slate-400 text-sm mt-1">{isOn ? 'Currently ON' : 'Currently OFF'}</p>
+        <div
+            onClick={handleToggle}
+            className={cn(
+                "relative group overflow-hidden rounded-[28px] p-6 transition-all duration-300 cursor-pointer flex flex-col justify-between h-44",
+                isOn
+                    ? "bg-gradient-to-br from-green-500 to-green-600 shadow-xl shadow-green-500/30 text-white"
+                    : "bg-white border-2 border-slate-100 shadow-sm hover:shadow-md text-slate-800"
+            )}
+        >
+            <div className="flex justify-between items-start z-10">
+                <div className={cn(
+                    "p-3.5 rounded-[20px] transition-colors",
+                    isOn ? "bg-white/20 text-white border border-white/20" : "bg-slate-50 border border-slate-100 text-slate-400 group-hover:bg-slate-100"
+                )}>
+                    <Power className="w-7 h-7" strokeWidth={2.5} />
+                </div>
+                {isLoading && (
+                    <div className={cn(
+                        "w-5 h-5 rounded-full border-[3px] border-t-transparent animate-spin",
+                        isOn ? "border-white/50" : "border-slate-300"
+                    )} />
+                )}
             </div>
-            <button
-                onClick={handleToggle}
-                disabled={isLoading}
-                className={`relative inline-flex h-12 w-24 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${isOn ? 'bg-green-500' : 'bg-slate-300'
-                    } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                role="switch"
-                aria-checked={isOn}
-            >
-                <span className="sr-only">Toggle {label}</span>
-                <span
-                    aria-hidden="true"
-                    className={`pointer-events-none inline-flex h-11 w-11 items-center justify-center transform rounded-full bg-white shadow ring-0 transition duration-300 ease-in-out ${isOn ? 'translate-x-12' : 'translate-x-0'
-                        }`}
-                >
-                    <Power className={`w-6 h-6 ${isOn ? 'text-green-500' : 'text-slate-400'}`} />
-                </span>
-            </button>
+
+            <div className="mt-4 z-10">
+                <h3 className={cn("font-bold text-lg tracking-wide", isOn ? "text-white" : "text-slate-700")}>
+                    {label}
+                </h3>
+                <p className={cn("text-[11px] font-bold mt-1.5 uppercase tracking-widest", isOn ? "text-green-100" : "text-slate-400")}>
+                    {isOn ? 'ON - ACTIVE' : 'OFF - STANDBY'}
+                </p>
+            </div>
+
+            {/* Blynk-style shiny effect background */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+
+            {/* Soft background blob */}
+            {isOn && (
+                <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            )}
         </div>
     );
 };

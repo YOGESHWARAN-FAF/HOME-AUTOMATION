@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-green: #22c55e; /* Default green-500 */
-  --color-highlight-yellow: #facc15; /* Default yellow-400 */
-  --color-warning-yellow: #eab308; /* Default yellow-500 */
+  --color-primary-green: #22c55e;
+  /* Default green-500 */
+  --color-highlight-yellow: #facc15;
+  /* Default yellow-400 */
+  --color-warning-yellow: #eab308;
+  /* Default yellow-500 */
 }
 
 body {
-  background-color: #f8fafc; /* Slate 50 to make white cards pop */
-  color: #1e293b; /* Slate 800 */
+  background-color: #f8fafc;
+  /* Slate 50 to make white cards pop */
+  color: #1e293b;
+  /* Slate 800 */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -19,13 +24,51 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Custom slider thumb */
+input[type=range].slider-thumb-blynk::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: white;
+  border: 6px solid #eab308;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s, border-color 0.2s;
+}
+
+input[type=range].slider-thumb-blynk::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  border-color: #facc15;
+}
+
+input[type=range].slider-thumb-blynk::-moz-range-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: white;
+  border: 6px solid #eab308;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s, border-color 0.2s;
+}
+
+input[type=range].slider-thumb-blynk::-moz-range-thumb:active {
+  transform: scale(1.1);
+  border-color: #facc15;
 }
