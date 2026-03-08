@@ -18,13 +18,26 @@ export const fetchThingSpeakData = async () => {
         const response = await axios.get(READ_URL, {
             params: {
                 api_key: READ_API_KEY,
-                results: 1,
+                results: 50, // Fetch the last 50 entries to scan for the latest non-null value of each field
                 t: Date.now() // Prevent browser caching
             }
         });
 
         if (response.data && response.data.feeds && response.data.feeds.length > 0) {
-            return response.data.feeds[0];
+            const mergedData = {};
+            const feeds = response.data.feeds;
+
+            // Scan backwards from the newest entry to the oldest
+            for (let i = feeds.length - 1; i >= 0; i--) {
+                const feed = feeds[i];
+                for (let j = 1; j <= 8; j++) {
+                    const fieldKey = `field${j}`;
+                    if (mergedData[fieldKey] === undefined && feed[fieldKey] !== null && feed[fieldKey] !== undefined) {
+                        mergedData[fieldKey] = feed[fieldKey];
+                    }
+                }
+            }
+            return mergedData;
         }
         return null;
     } catch (error) {
