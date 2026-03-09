@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { updateMultipleFields } from '../api';
 import { Leaf, Gauge, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -51,9 +51,26 @@ const MODES = [
     },
 ];
 
-const Dimmer2Control = ({ onUpdate }) => {
-    const [activeMode, setActiveMode] = useState('STANDARD');
+// Convert field6 numeric string to mode key
+const fieldToMode = (field6) => {
+    if (field6 === '1') return 'ECO';
+    if (field6 === '2') return 'STANDARD';
+    if (field6 === '3') return 'PERFORMANCE';
+    return 'STANDARD'; // default if nothing stored yet
+};
+
+const Dimmer2Control = ({ field6, onUpdate }) => {
+    const [activeMode, setActiveMode] = useState(() => fieldToMode(field6));
     const [isLoading, setIsLoading] = useState(false);
+    const [lastActionTime, setLastActionTime] = useState(0);
+
+    // Sync from ThingSpeak when field6 changes (on refresh/poll)
+    // but only if user hasn't just clicked a button (20s grace period)
+    useEffect(() => {
+        if (Date.now() - lastActionTime > 20000) {
+            setActiveMode(fieldToMode(field6));
+        }
+    }, [field6, lastActionTime]);
 
     const currentMode = MODES.find(m => m.key === activeMode) || MODES[1];
     const Icon = currentMode.icon;
@@ -64,6 +81,7 @@ const Dimmer2Control = ({ onUpdate }) => {
         if (!modeConfig) return;
 
         setIsLoading(true);
+        setLastActionTime(Date.now());
         const previousMode = activeMode;
         setActiveMode(modeKey);
 

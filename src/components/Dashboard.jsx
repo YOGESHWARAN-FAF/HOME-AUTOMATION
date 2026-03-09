@@ -168,6 +168,7 @@ const Dashboard = () => {
                                 />
                                 {/* Dimmer 2 — ECO / STANDARD / PERFORMANCE (field6) */}
                                 <Dimmer2Control
+                                    field6={data?.field6}
                                     onUpdate={handleManualRefresh}
                                 />
                             </div>
