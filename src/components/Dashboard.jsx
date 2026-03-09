@@ -1,12 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { fetchThingSpeakData } from '../api';
+import { fetchThingSpeakData, fetchSensorData } from '../api';
 import SwitchControl from './SwitchControl';
 import DimmerControl from './DimmerControl';
+import Dimmer2Control from './Dimmer2Control';
 import SensorCard from './SensorCard';
 import { RefreshCw, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 
 const Dashboard = () => {
+    // Control data from OLD channel (switches + dimmers)
     const [data, setData] = useState(null);
+    // Sensor data from NEW channel (LDR + motion)
+    const [sensorData, setSensorData] = useState({});
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
@@ -14,25 +19,34 @@ const Dashboard = () => {
     const loadData = useCallback(async () => {
         try {
             setError(null);
-            const feed = await fetchThingSpeakData();
-            if (feed) {
-                setData(feed);
+
+            // Fetch BOTH channels in parallel
+            const [controls, sensors] = await Promise.allSettled([
+                fetchThingSpeakData(),   // old channel: switches + dimmers
+                fetchSensorData(),       // new channel: LDR + motion
+            ]);
+
+            // Handle control data (old channel)
+            if (controls.status === 'fulfilled' && controls.value !== null) {
+                setData(controls.value);
                 setLastUpdated(new Date());
             } else {
-                setError("No data received from ThingSpeak");
+                setError('No data received from ThingSpeak (controls channel)');
+            }
+
+            // Handle sensor data (new channel) — never block dashboard for this
+            if (sensors.status === 'fulfilled' && sensors.value !== null) {
+                setSensorData(sensors.value);
             }
         } catch {
-            setError("Connection to ThingSpeak failed");
+            setError('Connection to ThingSpeak failed');
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        // Initial load
         loadData();
-
-        // Polling every 10 seconds
         const intervalId = setInterval(loadData, 10000);
         return () => clearInterval(intervalId);
     }, [loadData]);
@@ -46,7 +60,7 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans pb-12">
-            {/* Header Section */}
+            {/* Header */}
             <header className="bg-white sticky top-0 z-10 shadow-sm border-b border-slate-200">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div>
@@ -85,12 +99,10 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* Dashboard grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 gap-8">
+                    <div className="space-y-8">
 
-                    {/* Left Column: Switches & Dimmer */}
-                    <div className="lg:col-span-2 space-y-8">
-                        {/* Device Controls - Switches */}
+                        {/* ── Device Controls (old channel: field1-3 = switches) ── */}
                         <section aria-label="Switch Controls">
                             <div className="flex items-center justify-between mb-4 mt-2">
                                 <h2 className="text-xl font-bold text-slate-800">Device Controls</h2>
@@ -100,8 +112,7 @@ const Dashboard = () => {
                                     </span>
                                 )}
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <SwitchControl
                                     id="switch-1"
                                     fieldNumber={1}
@@ -126,37 +137,43 @@ const Dashboard = () => {
                             </div>
                         </section>
 
-                        {/* Dimmer Control */}
-                        <section aria-label="Dimmer Controls">
-                            <DimmerControl
-                                field4={data?.field4}
-                                field5={data?.field5}
-                                onUpdate={handleManualRefresh}
-                            />
-                        </section>
-                    </div>
-
-                    {/* Right Column: Sensors */}
-                    <div className="space-y-8">
+                        {/* ── Environment Sensors (new channel 3292146: field1=LDR, field2=Motion) ── */}
                         <section aria-label="Sensor Monitoring">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4 mt-2">Environment Sensors</h2>
-                            <div className="flex flex-col space-y-4">
+                            <h2 className="text-xl font-bold text-slate-800 mb-4">Environment Sensors</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <SensorCard
                                     title="LDR Sensor"
                                     type="ldr"
-                                    value={data?.field6}
+                                    value={sensorData?.field1}
                                     suffix="lux"
                                 />
                                 <SensorCard
                                     title="Motion Sensor"
                                     type="motion"
-                                    value={data?.field7}
+                                    value={sensorData?.field2}
                                     suffix="count"
                                 />
                             </div>
                         </section>
-                    </div>
 
+                        {/* ── Dimmer Controls (old channel: field4/5 = Dimmer1, field6 = Dimmer2) ── */}
+                        <section aria-label="Dimmer Controls">
+                            <h2 className="text-xl font-bold text-slate-800 mb-4">Dimmer Controls</h2>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Dimmer 1 — AUTO/MANUAL + brightness slider (field4, field5) */}
+                                <DimmerControl
+                                    field4={data?.field4}
+                                    field5={data?.field5}
+                                    onUpdate={handleManualRefresh}
+                                />
+                                {/* Dimmer 2 — ECO / STANDARD / PERFORMANCE (field6) */}
+                                <Dimmer2Control
+                                    onUpdate={handleManualRefresh}
+                                />
+                            </div>
+                        </section>
+
+                    </div>
                 </div>
             </main>
         </div>
